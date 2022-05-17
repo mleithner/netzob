@@ -35,6 +35,7 @@
 # | Standard library imports                                                  |
 # +---------------------------------------------------------------------------+
 from datetime import datetime, timedelta
+from enum import Enum
 
 # +---------------------------------------------------------------------------+
 # | Related third party imports                                               |
@@ -306,3 +307,19 @@ class Timestamp(AbstractType):
         if epoch is None:
             raise Exception("Epoch cannot be None")
         self.__epoch = epoch
+
+    def _construct_boundary_values(self):
+        bounds = super(Timestamp, self)._construct_boundary_values(align=False)
+        bounds[Timestamp.BoundaryValue.__name__] = [x for x in Timestamp.BoundaryValue.__members__]
+        return bounds
+
+    class BoundaryValue(Enum):
+        VALUE_ZERO = ('VALUE_ZERO', True)
+        VALUE_MAX = ('VALUE_MAX', True)
+        VALUE_NOW = ('VALUE_NOW', True)
+        VALUE_PAST = ('VALUE_PAST', True)
+        VALUE_FUTURE = ('VALUE_FUTURE', True)
+
+        ''' Returns False if this is a negative (invalid) value, True otherwise '''
+        def __bool__(self):
+            return self.value[1]

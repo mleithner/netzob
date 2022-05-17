@@ -37,6 +37,7 @@
 import random
 import os
 from bitarray import bitarray
+from enum import Enum
 
 # +---------------------------------------------------------------------------+
 # | Related third party imports                                               |
@@ -244,3 +245,52 @@ class Raw(AbstractType):
                     return False
 
         return True
+
+    def _construct_boundary_values(self):
+        bounds = super(Raw, self)._construct_boundary_values(align=(self.alphabet is not None))
+        min_size, max_size = self.size
+        omit = [] # Boundary values that shall be omitted
+        if self.alphabet is not None:
+            omit.append('VALUE_NONE')
+            omit.append('VALUE_ALL')
+            omit.append('VALUE_RAND')
+            omit.append('VALUE_MSB')
+            omit.append('VALUE_LSB')
+            omit.append('VALUE_TOPHALF')
+            omit.append('VALUE_BOTTOMHALF')
+            if max_size < 2*self.unit_size_to_int(self.unitSize):
+                omit.append('VALUE_ILLEGAL_END')
+            if max_size < 3*self.unit_size_to_int(self.unitSize):
+                omit.append('VALUE_ILLEGAL_RAND')
+        else:
+            omit.append('VALUE_LEGAL')
+            omit.append('VALUE_ILLEGAL_START')
+            omit.append('VALUE_ILLEGAL_END')
+            omit.append('VALUE_ILLEGAL_RAND')
+            if max_size < 4:
+                omit.append('VALUE_TOPHALF')
+            if max_size < 3:
+                omit.append('VALUE_BOTTOMHALF')
+                omit.append('VALUE_RAND')
+            if max_size < 2:
+                omit.append('VALUE_MSB')
+                omit.append('VALUE_LSB')
+        bounds[Raw.BoundaryValue.__name__] = [x for x in Raw.BoundaryValue.__members__ if x not in omit]
+        return bounds
+
+    class BoundaryValue(Enum):
+        VALUE_NONE = ('VALUE_NONE', True)
+        VALUE_ALL = ('VALUE_ALL', True)
+        VALUE_RAND = ('VALUE_RAND', True)
+        VALUE_MSB = ('VALUE_MSB', True)
+        VALUE_LSB = ('VALUE_LSB', True)
+        VALUE_TOPHALF = ('VALUE_TOPHALF', True)
+        VALUE_BOTTOMHALF = ('VALUE_BOTTOMHALF', True)
+        VALUE_LEGAL = ('VALUE_LEGAL', True)
+        VALUE_ILLEGAL_START = ('VALUE_ILLEGAL_START', False)
+        VALUE_ILLEGAL_END = ('VALUE_ILLEGAL_END', False)
+        VALUE_ILLEGAL_RAND = ('VALUE_ILLEGAL_RAND', False)
+
+        ''' Returns False if this is a negative (invalid) value, True otherwise '''
+        def __bool__(self):
+            return self.value[1]

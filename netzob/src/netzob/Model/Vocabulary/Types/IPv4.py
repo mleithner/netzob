@@ -36,6 +36,7 @@
 # +---------------------------------------------------------------------------+
 import struct
 import random
+from enum import Enum
 
 # +---------------------------------------------------------------------------+
 # | Related third party imports                                               |
@@ -354,3 +355,41 @@ class IPv4(AbstractType):
         except Exception as e:
             raise TypeError("Impossible encode {0} into an IPv4 data ({1})".
                             format(data, e))
+
+    def _construct_boundary_values(self):
+        bounds = super(IPv4, self)._construct_boundary_values(align=False)
+        omit = [] # Boundary values that shall be omitted
+        if self.network is not None:
+            omit.append('VALUE_LOCALHOST')
+            omit.append('VALUE_PRIVATE')
+            omit.append('VALUE_LINK')
+            omit.append('VALUE_TESTNET')
+            omit.append('VALUE_6TO4')
+            omit.append('VALUE_MULTICAST')
+            omit.append('VALUE_RESERVED')
+            omit.append('VALUE_PUBLIC')
+        else:
+            omit.append('VALUE_HOST')
+            omit.append('VALUE_BROADCAST')
+            omit.append('VALUE_NET')
+            omit.append('VALUE_ILLEGAL')
+        bounds[IPv4.BoundaryValue.__name__] = [x for x in IPv4.BoundaryValue.__members__ if x not in omit]
+        return bounds
+
+    class BoundaryValue(Enum):
+        VALUE_HOST = ('VALUE_HOST', True)
+        VALUE_BROADCAST = ('VALUE_BROADCAST', False)
+        VALUE_NET = ('VALUE_NET', False)
+        VALUE_ILLEGAL = ('VALUE_ILLEGAL', False)
+        VALUE_LOCALHOST = ('VALUE_LOCALHOST', True)
+        VALUE_PRIVATE = ('VALUE_PRIVATE', True)
+        VALUE_LINK = ('VALUE_LINK', False)
+        VALUE_TESTNET = ('VALUE_TESTNET', True)
+        VALUE_6TO4 = ('VALUE_6TO4', False)
+        VALUE_MULTICAST = ('VALUE_MULTICAST', False)
+        VALUE_RESERVED = ('VALUE_RESERVED', False)
+        VALUE_PUBLIC = ('VALUE_PUBLIC', True)
+
+        ''' Returns False if this is a negative (invalid) value, True otherwise '''
+        def __bool__(self):
+            return self.value[1]

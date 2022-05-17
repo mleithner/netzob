@@ -36,6 +36,7 @@
 #+---------------------------------------------------------------------------+
 import binascii
 from bitarray import bitarray
+from enum import Enum
 
 #+---------------------------------------------------------------------------+
 #| Related third party imports                                               |
@@ -197,3 +198,31 @@ class HexaString(AbstractType):
             raise TypeError("data cannot be None")
 
         return binascii.hexlify(data)
+
+    def _construct_boundary_values(self):
+        bounds = super(HexaString, self)._construct_boundary_values(align=False)
+        min_size, max_size = self.size
+        omit = [] # Boundary values that shall be omitted
+        if max_size < 4:
+            omit.append('VALUE_TOPHALF')
+        if max_size < 3:
+            omit.append('VALUE_BOTTOMHALF')
+            omit.append('VALUE_RAND')
+        if max_size < 2:
+            omit.append('VALUE_MSB')
+            omit.append('VALUE_LSB')
+        bounds[HexaString.BoundaryValue.__name__] = [x for x in HexaString.BoundaryValue.__members__ if x not in omit]
+        return bounds
+
+    class BoundaryValue(Enum):
+        VALUE_NONE = ('VALUE_NONE', True)
+        VALUE_ALL = ('VALUE_ALL', True)
+        VALUE_RAND = ('VALUE_RAND', True)
+        VALUE_MSB = ('VALUE_MSB', True)
+        VALUE_LSB = ('VALUE_LSB', True)
+        VALUE_TOPHALF = ('VALUE_TOPHALF', True)
+        VALUE_BOTTOMHALF = ('VALUE_BOTTOMHALF', True)
+
+        ''' Returns False if this is a negative (invalid) value, True otherwise '''
+        def __bool__(self):
+            return self.value[1]

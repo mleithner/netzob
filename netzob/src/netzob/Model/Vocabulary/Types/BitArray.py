@@ -40,6 +40,7 @@ import random
 # | Related third party imports                                               |
 # +---------------------------------------------------------------------------+
 from bitarray import bitarray
+from enum import Enum
 
 # +---------------------------------------------------------------------------+
 # | Local application imports                                                 |
@@ -207,3 +208,31 @@ class BitArray(AbstractType):
         b = bitarray(endian=endian)
         b.frombytes(norm_data)
         return b
+
+    def _construct_boundary_values(self):
+        bounds = super(BitArray, self)._construct_boundary_values(align=False)
+        min_size, max_size = self.size
+        omit = [] # Boundary values that shall be omitted
+        if max_size < 4:
+            omit.append('VALUE_TOPHALF')
+        if max_size < 3:
+            omit.append('VALUE_BOTTOMHALF')
+            omit.append('VALUE_RAND')
+        if max_size < 2:
+            omit.append('VALUE_MSB')
+            omit.append('VALUE_LSB')
+        bounds[BitArray.BoundaryValue.__name__] = [x for x in BitArray.BoundaryValue.__members__ if x not in omit]
+        return bounds
+
+    class BoundaryValue(Enum):
+        VALUE_NONE = ('VALUE_NONE', True)
+        VALUE_ALL = ('VALUE_ALL', True)
+        VALUE_RAND = ('VALUE_RAND', True)
+        VALUE_MSB = ('VALUE_MSB', True)
+        VALUE_LSB = ('VALUE_LSB', True)
+        VALUE_TOPHALF = ('VALUE_TOPHALF', True)
+        VALUE_BOTTOMHALF = ('VALUE_BOTTOMHALF', True)
+
+        ''' Returns False if this is a negative (invalid) value, True otherwise '''
+        def __bool__(self):
+            return self.value[1]

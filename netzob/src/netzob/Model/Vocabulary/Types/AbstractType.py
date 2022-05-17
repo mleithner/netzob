@@ -40,6 +40,7 @@ import uuid
 from bitarray import bitarray
 import random
 import collections
+from enum import Enum
 
 #+---------------------------------------------------------------------------+
 #| Related third party imports                                               |
@@ -124,6 +125,24 @@ class AbstractType(object, metaclass=abc.ABCMeta):
         ]
 
     @staticmethod
+    def unit_size_to_int(unit_size):
+        """Returns an integer representation of the unit size, if available"""
+        if unit_size == AbstractType.UNITSIZE_1:
+            return 1
+        elif unit_size == AbstractType.UNITSIZE_4:
+            return 4
+        elif unit_size == AbstractType.UNITSIZE_8:
+            return 8
+        elif unit_size == AbstractType.UNITSIZE_16:
+            return 16
+        elif unit_size == AbstractType.UNITSIZE_32:
+            return 32
+        elif unit_size == AbstractType.UNITSIZE_64:
+            return 64
+        else:
+            raise ValueError('No integer representation for this unit size')
+
+    @staticmethod
     def supportedEndianness():
         """Official endianness supported"""
         return [AbstractType.ENDIAN_BIG, AbstractType.ENDIAN_LITTLE]
@@ -159,6 +178,8 @@ class AbstractType(object, metaclass=abc.ABCMeta):
         :rtype: str
         """
         return AbstractType.SIGN_UNSIGNED
+
+
 
     def __init__(self,
                  typeName,
@@ -672,3 +693,29 @@ class AbstractType(object, metaclass=abc.ABCMeta):
                 "Specified Sign is not supported, please refer to the list in AbstractType.supportedSign()."
             )
         self.__sign = sign
+
+    class Size(Enum):
+        SIZE_MIN = ('SIZE_MIN', True)
+        SIZE_RAND = ('SIZE_RAND', True)
+        SIZE_MAX = ('SIZE_MAX', True)
+
+        ''' Returns False if this is a negative (invalid) value, True otherwise '''
+        def __bool__(self):
+            return self.value[1]
+
+    def _construct_boundary_values(self, align=True):
+        bounds = {} # boundary name -> [boundary values]
+        min_size, max_size = self.size
+        print(f'AbstractType: Constructing boundary values for sizes {min_size}, {max_size}')
+        if min_size != max_size:
+            assert min_size < max_size
+            min_gap = AbstractType.unit_size_to_int(self.unitSize) if align else 1
+            if max_size-min_size > min_gap:
+                bounds[AbstractType.Size.__name__] = [x for x in AbstractType.Size.__members__]
+            else:
+                bounds[AbstractType.Size.__name__] = [x for x in AbstractType.Size.__members__ if x != 'SIZE_RAND']
+        return bounds
+
+    @property
+    def boundary_values(self):
+        return self._construct_boundary_values()

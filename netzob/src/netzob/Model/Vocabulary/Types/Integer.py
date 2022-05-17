@@ -37,6 +37,7 @@
 import struct
 import math
 from bitarray import bitarray
+from enum import Enum
 
 # +---------------------------------------------------------------------------+
 # | Related third party imports                                               |
@@ -133,6 +134,8 @@ class Integer(AbstractType):
         else:
             nbBits = int(unitSize)
 
+        self.interval = interval
+
         super(Integer, self).__init__(
             self.__class__.__name__,
             value,
@@ -166,6 +169,8 @@ class Integer(AbstractType):
             else:
                 return math.floor(
                     (math.floor(math.log(val, 2)) + 2) / int(unitSize)) + 1
+        # XXX Is this correct?
+        return 0
 
     def canParse(self,
                  data,
@@ -433,3 +438,55 @@ class Integer(AbstractType):
                 return AbstractType.UNITSIZE_64
             else:
                 raise ValueError("Value is out of unsigned 64bit Integer range.")
+
+    def _construct_boundary_values(self):
+        bounds = super(Integer, self)._construct_boundary_values()
+        interval = self.interval
+        native_interval = self._get_native_interval()
+        if interval is None:
+            interval = native_interval
+        print(f'Integer: Constructing boundary values for interval {interval}')
+        omit = [] # Values that shall be omitted
+        min_val, max_val = interval
+        if min_val == max_val:
+            return bounds # Nothing to add here
+
+        assert min_val < max_val
+        native_min, native_max = native_interval
+        if min_val-1 < native_min:
+            omit.append('VALUE_MIN_MINUS')
+        if max_val+1 > native_max:
+            omit.append('VALUE_MAX_PLUS')
+        if max_val-min_val < 4:
+            omit.append('VALUE_RAND')
+        if max_val-min_val < 3:
+            omit.append('VALUE_MAX_MINUS')
+        if max_val-min_val < 2:
+            omit.append('VALUE_MIN_PLUS')
+        bounds[Integer.BoundaryValue.__name__] = [x for x in Integer.BoundaryValue.__members__ if x not in omit]
+        return bounds
+
+    def _get_native_interval(self):
+        min_size, max_size = self.size
+        min_val = None
+        max_val = None
+        if self.sign == AbstractType.SIGN_UNSIGNED:
+            min_val = 0
+            max_val = (2**max_size)-1
+        else:
+            min_val = -(2**(max_size-1))
+            max_val = (2**(max_size-1))-1
+        return (min_val, max_val)
+
+    class BoundaryValue(Enum):
+        VALUE_MIN_MINUS = ('VALUE_MIN_MINUS', False)
+        VALUE_MIN = ('VALUE_MIN', True)
+        VALUE_MIN_PLUS = ('VALUE_MIN_PLUS', True)
+        VALUE_RAND = ('VALUE_RAND', True)
+        VALUE_MAX_MINUS = ('VALUE_MAX_MINUS', True)
+        VALUE_MAX = ('VALUE_MAX', True)
+        VALUE_MAX_PLUS = ('VALUE_MAX_PLUS', False)
+
+        ''' Returns False if this is a negative (invalid) value, True otherwise '''
+        def __bool__(self):
+            return self.value[1]

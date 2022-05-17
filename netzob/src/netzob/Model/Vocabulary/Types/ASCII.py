@@ -37,6 +37,7 @@
 import random
 import string
 import collections
+from enum import Enum
 
 # +---------------------------------------------------------------------------+
 # | Related third party imports                                               |
@@ -105,6 +106,7 @@ class ASCII(AbstractType):
                 dst_endianness=endianness,
                 dst_sign=sign)
         else:
+            # XXX BUG?
             value = None
 
         self.nbChars = nbChars
@@ -386,3 +388,35 @@ class ASCII(AbstractType):
                 res += "."
 
         return res
+
+    def _construct_boundary_values(self):
+        bounds = super(ASCII, self)._construct_boundary_values(align=False)
+        min_size, max_size = self.size
+        omit = [] # Boundary values that shall be omitted
+        if max_size < 2:
+            omit.append('CASE_RANDOM')
+        bounds[ASCII.Alphabet.__name__] = [x for x in ASCII.Alphabet.__members__ if x not in omit]
+        bounds[ASCII.LetterCase.__name__] = [x for x in ASCII.LetterCase.__members__ if x not in omit]
+        return bounds
+
+    class Alphabet(Enum):
+        ALPHABET_ALPHA = ('ALPHABET_ALPHA', True)
+        ALPHABET_ALPHANUMERIC = ('ALPHABET_ALPHANUMERIC', True)
+        ALPHABET_HEX = ('ALPHABET_HEX', True)
+        ALPHABET_PRINTABLE = ('ALPHABET_PRINTABLE', True)
+        ALPHABET_UTF8 = ('ALPHABET_UTF8', True)
+        ALPHABET_INVALID_UTF8 = ('ALPHABET_INVALID_UTF8', False)
+        ALPHABET_NUL_FIRST = ('ALPHABET_NUL_FIRST', False)
+
+        ''' Returns False if this is a negative (invalid) value, True otherwise '''
+        def __bool__(self):
+            return self.value[1]
+
+    class LetterCase(Enum):
+        CASE_UPPER = ('CASE_UPPER', True)
+        CASE_LOWER = ('CASE_LOWER', True)
+        CASE_RANDOM = ('CASE_RANDOM', True)
+
+        ''' Returns False if this is a negative (invalid) value, True otherwise '''
+        def __bool__(self):
+            return self.value[1]
