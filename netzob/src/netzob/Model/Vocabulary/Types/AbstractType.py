@@ -231,7 +231,7 @@ class AbstractType(object, metaclass=abc.ABCMeta):
             return "{0}={1} ({2})".format(self.typeName, self.value, self.size)
 
     def __repr__(self):
-        if self.value != None:
+        if self.value is not None:
             from netzob.Model.Vocabulary.Types.TypeConverter import TypeConverter
             from netzob.Model.Vocabulary.Types.BitArray import BitArray
             return str(
@@ -719,3 +719,35 @@ class AbstractType(object, metaclass=abc.ABCMeta):
     @property
     def boundary_values(self):
         return self._construct_boundary_values()
+
+    def concretize(self, ca_values, align=True):
+        """Children should set their value using this function, which gets all
+        the CA columns corresponding to this type for one row.
+        However, this implementation only returns the concrete size
+        (as this is the only property that is defined by this class)."""
+
+        # Types with static size always use that size
+        min_size, max_size = self.size
+        if min_size == max_size:
+            return min_size
+
+        # Otherwise, we should have a size specification in the CA row
+        if AbstractType.Size.__name__ in ca_values:
+            val = AbstractType.Size[ca_values[AbstractType.Size.__name__]]
+            if val == AbstractType.Size.SIZE_MIN:
+                return min_size
+            if val == AbstractType.Size.SIZE_MAX:
+                return max_size
+            if val == AbstractType.Size.SIZE_RAND:
+                # If we have to align the size to unitSize, determine how many
+                # units fit in the range between maximum and minimum size
+                # without actually reaching the max
+                if align:
+                    unit_size_int = self.unit_size_to_int(self.unitSize)
+                    gaps = int(((max_size-min_size)/unit_size_int)-1)
+                    return min_size + unit_size_int*random.randint(1, gaps)
+                # Otherwise, just pick a random size between (exclusive)
+                # minimum and maximum
+                return random.randint(min_size+1, max_size-1)
+
+        raise ValueError('Non-static size for type and no valid size in CA row')

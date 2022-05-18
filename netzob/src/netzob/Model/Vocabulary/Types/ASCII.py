@@ -106,7 +106,7 @@ class ASCII(AbstractType):
                 dst_endianness=endianness,
                 dst_sign=sign)
         else:
-            # XXX BUG?
+            # XXX BUG if value is a bitarray?
             value = None
 
         self.nbChars = nbChars
@@ -420,3 +420,56 @@ class ASCII(AbstractType):
         ''' Returns False if this is a negative (invalid) value, True otherwise '''
         def __bool__(self):
             return self.value[1]
+
+    def concretize(self, ca_values):
+        size = super(ASCII, self).concretize(ca_values, align=True)
+        length = int(size/int(self.unitSize))
+
+        if ASCII.Alphabet.__name__ in ca_values:
+            import string
+            alpha = ASCII.Alphabet[ca_values[ASCII.Alphabet.__name__]]
+            case = ASCII.LetterCase[ca_values[ASCII.LetterCase.__name__]]
+
+            if alpha == ASCII.Alphabet.ALPHABET_ALPHA or alpha == ASCII.Alphabet.ALPHABET_ALPHANUMERIC \
+               or alpha == ASCII.Alphabet.ALPHABET_HEX or alpha == ASCII.Alphabet.ALPHABET_PRINTABLE \
+               or alpha == ASCII.Alphabet.ALPHABET_UTF8:
+                if alpha == ASCII.Alphabet.ALPHABET_ALPHA:
+                    alphabet_str = string.ascii_letters
+                elif alpha == ASCII.Alphabet.ALPHABET_ALPHANUMERIC:
+                    alphabet_str = string.ascii_letters + string.digits
+                elif alpha == ASCII.Alphabet.ALPHABET_HEX:
+                    alphabet_str = string.hexdigits
+                elif alpha == ASCII.Alphabet.ALPHABET_PRINTABLE:
+                    alphabet_str = string.printable
+                elif alpha == ASCII.Alphabet.ALPHABET_UTF8:
+                    alphabet_str = "ȒȓȔȕȖȗȘșȚțȜȝȞȟȠȡȢȣȤȥȦȧȨȩȪȫȬȭȮȯȰȱȲȳȴȵȶȷȸȹȺȻȼȽȾȿɀɁɂɃɄɅɆɇɈɉɊ"
+
+                if case == ASCII.LetterCase.CASE_UPPER:
+                    alphabet_str = alphabet_str.upper()
+                elif case == ASCII.LetterCase.CASE_LOWER:
+                    alphabet_str = alphabet_str.lower()
+
+                from netzob.Model.Vocabulary.Types.TypeConverter import TypeConverter
+                from netzob.Model.Vocabulary.Types.BitArray import BitArray
+                value = TypeConverter.convert(
+                    "".join([random.choice(list(alphabet_str)) for _ in range(length)]),
+                    ASCII,
+                    BitArray,
+                    src_unitSize=self.unitSize,
+                    src_endianness=self.endianness,
+                    src_sign=self.sign,
+                    dst_unitSize=self.unitSize,
+                    dst_endianness=self.endianness,
+                    dst_sign=self.sign)
+
+            elif alpha == ASCII.Alphabet.ALPHABET_INVALID_UTF8:
+                # 0xfe should be invalid
+                value = bitarray('11111110') * length # 0xfe
+            elif alpha == ASCII.Alphabet.ALPHABET_NUL_FIRST:
+                # 0x00 + 'A' * (length-1)
+                value = bitarray('00000000') + (bitarray('01000001') * (length-1))
+
+            self.value = value
+            return self
+
+        raise ValueError('Could not construct ASCII, no valid spec in CA')

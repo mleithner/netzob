@@ -294,3 +294,83 @@ class Raw(AbstractType):
         ''' Returns False if this is a negative (invalid) value, True otherwise '''
         def __bool__(self):
             return self.value[1]
+
+    def concretize(self, ca_values):
+        size = super(Raw, self).concretize(ca_values, align=(self.alphabet is not None))
+
+        if Raw.BoundaryValue.__name__ in ca_values:
+            val = Raw.BoundaryValue[ca_values[Raw.BoundaryValue.__name__]]
+            value = bitarray(size, endian=self.endianness)
+
+            if val == Raw.BoundaryValue.VALUE_NONE:
+                value.setall(0)
+            elif val == Raw.BoundaryValue.VALUE_ALL:
+                value.setall(1)
+            elif val == Raw.BoundaryValue.VALUE_MSB:
+                value.setall(0)
+                value[0] = 1
+            elif val == Raw.BoundaryValue.VALUE_LSB:
+                value.setall(0)
+                value[-1] = 1
+            elif val == Raw.BoundaryValue.VALUE_TOPHALF:
+                value.setall(0)
+                value[0:int(size/2)] = 1
+            elif val == Raw.BoundaryValue.VALUE_BOTTOMHALF:
+                value.setall(0)
+                value[int(size/2):] = 1
+            elif val == Raw.BoundaryValue.VALUE_RAND:
+                excluded = [bitarray(size, endian=self.endianness)
+                            , bitarray(size, endian=self.endianness)
+                            , bitarray(size, endian=self.endianness)
+                            , bitarray(size, endian=self.endianness)
+                            , bitarray(size, endian=self.endianness)
+                            , bitarray(size, endian=self.endianness)
+                            ]
+                excluded[0].setall(0)
+                excluded[1].setall(1)
+                excluded[2].setall(0)
+                excluded[2][0] = 1
+                excluded[3].setall(0)
+                excluded[3][-1] = 1
+                excluded[4].setall(0)
+                excluded[4][0:int(size/2)] = 1
+                excluded[5].setall(0)
+                excluded[5][int(size/2):] = 1
+                randomContent = [random.randint(0, 1) for i in range(0, size)]
+                value = bitarray(randomContent, endian=self.endianness)
+                while value in excluded:
+                    randomContent = [random.randint(0, 1) for i in range(0, size)]
+                    value = bitarray(randomContent, endian=self.endianness)
+            elif val == Raw.BoundaryValue.VALUE_LEGAL:
+                assert self.alphabet is not None
+                generated = "".join([random.choice(self.alphabet) for _ in range(int(size / 8))])
+                from netzob.Model.Vocabulary.Types.TypeConverter import TypeConverter
+                from netzob.Model.Vocabulary.Types.BitArray import BitArray
+                value = TypeConverter.convert(generated, Raw, BitArray)
+            elif val == Raw.BoundaryValue.VALUE_ILLEGAL_START \
+                 or val == Raw.BoundaryValue.VALUE_ILLEGAL_END \
+                 or val == Raw.BoundaryValue.VALUE_ILLEGAL_RAND:
+                assert self.alphabet is not None
+                # Really dumb special case that allows all characters
+                assert len(self.alphabet) < 128
+                badbyte = chr(random.randint(0, 127))
+                len_bytes = int(size / 8)
+                while badbyte in self.alphabet:
+                    badbyte = chr(random.randint(0, 127))
+                if val == Raw.BoundaryValue.VALUE_ILLEGAL_START:
+                    generated = str(badbyte) + "".join([random.choice(self.alphabet) for _ in range(len_bytes-1)])
+                elif val == Raw.BoundaryValue.VALUE_ILLEGAL_END:
+                    generated = "".join([random.choice(self.alphabet) for _ in range(len_bytes-1)]) + str(badbyte)
+                elif val == Raw.BoundaryValue.VALUE_ILLEGAL_RAND:
+                    prefix_len = random.randint(1, len_bytes-2)
+                    generated = "".join([random.choice(self.alphabet) for _ in range(prefix_len)])
+                    generated += badbyte
+                    generated += "".join([random.choice(self.alphabet) for _ in range(len_bytes-prefix_len-1)])
+                from netzob.Model.Vocabulary.Types.TypeConverter import TypeConverter
+                from netzob.Model.Vocabulary.Types.BitArray import BitArray
+                value = TypeConverter.convert(generated, Raw, BitArray)
+
+            self.value = value
+            return self
+
+        raise ValueError('Could not construct Raw, no valid spec in CA')

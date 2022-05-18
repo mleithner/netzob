@@ -36,6 +36,7 @@
 # +---------------------------------------------------------------------------+
 from datetime import datetime, timedelta
 from enum import Enum
+import random
 
 # +---------------------------------------------------------------------------+
 # | Related third party imports                                               |
@@ -323,3 +324,35 @@ class Timestamp(AbstractType):
         ''' Returns False if this is a negative (invalid) value, True otherwise '''
         def __bool__(self):
             return self.value[1]
+
+    def concretize(self, ca_values):
+        if Timestamp.BoundaryValue.__name__ in ca_values:
+            import math
+            val = Timestamp.BoundaryValue[ca_values[Timestamp.BoundaryValue.__name__]]
+            bits = int(self.unitSize) if self.sign == AbstractType.SIGN_UNSIGNED else int(self.unitSize)-1
+            bits -= math.ceil(math.log2(self.unity))
+
+            if val == Timestamp.BoundaryValue.VALUE_ZERO:
+                result_sec = self.epoch
+            elif val == Timestamp.BoundaryValue.VALUE_MAX:
+                result_sec = (2**bits)-1
+            elif val == Timestamp.BoundaryValue.VALUE_NOW:
+                result_sec = (datetime.utcnow() - self.epoch).total_seconds()
+            elif val == Timestamp.BoundaryValue.VALUE_PAST:
+                result_sec = random.randint(1, int((datetime.utcnow() - self.epoch).total_seconds())-1)
+            elif val == Timestamp.BoundaryValue.VALUE_FUTURE:
+                result_sec = random.randint(int((datetime.utcnow() - self.epoch).total_seconds())+86400, (2**bits)-2)
+
+            result_unity = int(result_sec * self.unity)
+            value = TypeConverter.convert(
+                result_unity,
+                Integer,
+                BitArray,
+                src_unitSize=self.unitSize,
+                src_endianness=self.endianness,
+                src_sign=AbstractType.SIGN_UNSIGNED,
+                dst_endianness=self.endianness)
+            self.value = value
+            return self
+
+        raise ValueError('Could not construct Timestamp, no valid spec in CA')

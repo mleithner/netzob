@@ -466,8 +466,10 @@ class Integer(AbstractType):
         bounds[Integer.BoundaryValue.__name__] = [x for x in Integer.BoundaryValue.__members__ if x not in omit]
         return bounds
 
-    def _get_native_interval(self):
-        min_size, max_size = self.size
+    def _get_native_interval(self, size=None):
+        if size is None:
+            size = self.size
+        min_size, max_size = size
         min_val = None
         max_val = None
         if self.sign == AbstractType.SIGN_UNSIGNED:
@@ -490,3 +492,49 @@ class Integer(AbstractType):
         ''' Returns False if this is a negative (invalid) value, True otherwise '''
         def __bool__(self):
             return self.value[1]
+
+    def concretize(self, ca_values):
+        size = super(Integer, self).concretize(ca_values)
+
+        if Integer.BoundaryValue.__name__ in ca_values:
+            val = Integer.BoundaryValue[ca_values[Integer.BoundaryValue.__name__]]
+            interval = self.interval
+            native_interval = self._get_native_interval((size, size))
+            if interval is None:
+                interval = native_interval
+            min_val, max_val = interval
+
+            if val == Integer.BoundaryValue.VALUE_MIN_MINUS:
+                value = min_val-1
+            elif val == Integer.BoundaryValue.VALUE_MIN:
+                value = min_val
+            elif val == Integer.BoundaryValue.VALUE_MIN_PLUS:
+                value = min_val+1
+            elif val == Integer.BoundaryValue.VALUE_RAND:
+                import random
+                value = random.randint(min_val+2, max_val-2)
+            elif val == Integer.BoundaryValue.VALUE_MAX_MINUS:
+                value = max_val-1
+            elif val == Integer.BoundaryValue.VALUE_MAX:
+                value = max_val
+            elif val == Integer.BoundaryValue.VALUE_MAX_PLUS:
+                value = max_val+1
+
+            # Convert value to BitArray
+            from netzob.Model.Vocabulary.Types.TypeConverter import TypeConverter
+            from netzob.Model.Vocabulary.Types.BitArray import BitArray
+
+            self.value = TypeConverter.convert(
+                value,
+                Integer,
+                BitArray,
+                src_unitSize=self.unitSize,
+                src_endianness=self.endianness,
+                src_sign=self.sign,
+                dst_unitSize=self.unitSize,
+                dst_endianness=self.endianness,
+                dst_sign=self.sign)
+
+            return self
+
+        raise ValueError('Could not construct Integer, no valid spec in CA')

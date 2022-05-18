@@ -236,3 +236,55 @@ class BitArray(AbstractType):
         ''' Returns False if this is a negative (invalid) value, True otherwise '''
         def __bool__(self):
             return self.value[1]
+
+    def concretize(self, ca_values):
+        size = super(BitArray, self).concretize(ca_values, align=False)
+
+        if BitArray.BoundaryValue.__name__ in ca_values:
+            val = BitArray.BoundaryValue[ca_values[BitArray.BoundaryValue.__name__]]
+            value = bitarray(size, endian=self.endianness)
+
+            if val == BitArray.BoundaryValue.VALUE_NONE:
+                value.setall(0)
+            elif val == BitArray.BoundaryValue.VALUE_ALL:
+                value.setall(1)
+            elif val == BitArray.BoundaryValue.VALUE_MSB:
+                value.setall(0)
+                value[0] = 1
+            elif val == BitArray.BoundaryValue.VALUE_LSB:
+                value.setall(0)
+                value[-1] = 1
+            elif val == BitArray.BoundaryValue.VALUE_TOPHALF:
+                value.setall(0)
+                value[0:int(size/2)] = 1
+            elif val == BitArray.BoundaryValue.VALUE_BOTTOMHALF:
+                value.setall(0)
+                value[int(size/2):] = 1
+            elif val == BitArray.BoundaryValue.VALUE_RAND:
+                excluded = [bitarray(size, endian=self.endianness)
+                            , bitarray(size, endian=self.endianness)
+                            , bitarray(size, endian=self.endianness)
+                            , bitarray(size, endian=self.endianness)
+                            , bitarray(size, endian=self.endianness)
+                            , bitarray(size, endian=self.endianness)
+                            ]
+                excluded[0].setall(0)
+                excluded[1].setall(1)
+                excluded[2].setall(0)
+                excluded[2][0] = 1
+                excluded[3].setall(0)
+                excluded[3][-1] = 1
+                excluded[4].setall(0)
+                excluded[4][0:int(size/2)] = 1
+                excluded[5].setall(0)
+                excluded[5][int(size/2):] = 1
+                randomContent = [random.randint(0, 1) for i in range(0, size)]
+                value = bitarray(randomContent, endian=self.endianness)
+                while value in excluded:
+                    randomContent = [random.randint(0, 1) for i in range(0, size)]
+                    value = bitarray(randomContent, endian=self.endianness)
+
+            self.value = value
+            return self
+
+        raise ValueError('Could not construct BitArray, no valid spec in CA')

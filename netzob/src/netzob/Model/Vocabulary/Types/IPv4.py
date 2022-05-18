@@ -393,3 +393,70 @@ class IPv4(AbstractType):
         ''' Returns False if this is a negative (invalid) value, True otherwise '''
         def __bool__(self):
             return self.value[1]
+
+    def concretize(self, ca_values):
+        if IPv4.BoundaryValue.__name__ in ca_values:
+            import string
+            val = IPv4.BoundaryValue[ca_values[IPv4.BoundaryValue.__name__]]
+
+            if val == IPv4.BoundaryValue.VALUE_HOST or val == IPv4.BoundaryValue.VALUE_NET \
+               or val == IPv4.BoundaryValue.VALUE_ILLEGAL:
+                # We need a defined network to compute these
+                assert self.network is not None
+
+                if val == IPv4.BoundaryValue.VALUE_HOST:
+                    value = random.choice([ip for ip in self.network.iter_hosts()])
+                elif val == IPv4.BoundaryValue.VALUE_NET:
+                    value = self.network.network
+                elif val == IPv4.BoundaryValue.VALUE_ILLEGAL:
+                    value = random.choice([ip for ip in self.network.next().iter_hosts()])
+
+            elif val == IPv4.BoundaryValue.VALUE_LOCALHOST:
+                value = IPAddress('127.0.0.1')
+            elif val == IPv4.BoundaryValue.VALUE_PRIVATE:
+                # Fixed to one network for now because it takes a second or two
+                # to pick a random address from larger ranges
+                value = random.choice([ip for ip in IPNetwork('192.168.0.0/16').iter_hosts()])
+            elif val == IPv4.BoundaryValue.VALUE_LINK:
+                value = random.choice([ip for ip in IPNetwork('169.254.0.0/16').iter_hosts()])
+            elif val == IPv4.BoundaryValue.VALUE_TESTNET:
+                net = random.choice([IPNetwork('192.0.2.0/24')
+                                    , IPNetwork('198.51.100.0/24')
+                                    , IPNetwork('203.0.113.0/24')])
+                value = random.choice([ip for ip in net.iter_hosts()])
+            elif val == IPv4.BoundaryValue.VALUE_6TO4:
+                value = random.choice([ip for ip in IPNetwork('192.88.99.0/24').iter_hosts()])
+            elif val == IPv4.BoundaryValue.VALUE_MULTICAST:
+                # Restricted from /4 to /16 for performance reasons
+                value = random.choice([ip for ip in IPNetwork('224.0.0.0/16').iter_hosts()])
+            elif val == IPv4.BoundaryValue.VALUE_RESERVED:
+                # Restricted from /4 to /16 for performance reasons
+                value = random.choice([ip for ip in IPNetwork('240.0.0.0/16').iter_hosts()])
+            elif val == IPv4.BoundaryValue.VALUE_BROADCAST:
+                if self.network is not None:
+                    value = self.network.broadcast
+                else:
+                    value = IPAddress('255.255.255.255')
+            elif val == IPv4.BoundaryValue.VALUE_PUBLIC:
+                # Just using a fixed network for now...
+                value = random.choice([ip for ip in IPNetwork('13.37.0.0/16').iter_hosts()])
+
+            from netzob.Model.Vocabulary.Types.BitArray import BitArray
+            from netzob.Model.Vocabulary.Types.TypeConverter import TypeConverter
+            from netzob.Model.Vocabulary.Types.Raw import Raw
+
+            value = TypeConverter.convert(
+                value.packed,
+                Raw,
+                BitArray,
+                src_unitSize=self.unitSize,
+                src_endianness=self.endianness,
+                src_sign=self.sign,
+                dst_unitSize=self.unitSize,
+                dst_endianness=self.endianness,
+                dst_sign=self.sign)
+
+            self.value = value
+            return self
+
+        raise ValueError('Could not construct IPv4, no valid spec in CA')
