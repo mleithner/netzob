@@ -140,7 +140,7 @@ Miscellaneous
 Configuration of Log Level
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Environment variable ```NETZOB_LOG_VERBOSITY``` can be use to set the logging level. The numeric values of logging levels are given in the Python Documentation of the `Logging Module <https://docs.python.org/3.5/library/logging.html#levels>`_. For example, the following command starts netzob in *DEBUG* mode::
+Environment variable ```NETZOB_LOG_LEVEL``` can be use to set the logging level. The numeric values of logging levels are given in the Python Documentation of the `Logging Module <https://docs.python.org/3.5/library/logging.html#levels>`_. For example, the following command starts netzob in *DEBUG* mode::
 
   $ NETZOB_LOG_LEVEL=10 ./netzob
 
