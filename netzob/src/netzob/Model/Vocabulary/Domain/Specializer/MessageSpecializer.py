@@ -186,6 +186,37 @@ class MessageSpecializer(object):
 
         return retainedPath
 
+    @typeCheck(Symbol)
+    def build_ipm(self, symbol):
+        """This method generates an IPM based on the provided symbol definition."""
+        if symbol is None:
+            raise Exception("Specified symbol is None")
+
+        self._logger.debug("Building IPM for symbol '{0}'.".format(symbol.name))
+
+        self._update_presets(symbol)
+
+        # Field -> {fields, variables}
+        ipm = {}
+
+        for field in symbol.fields:
+            self._logger.debug("Building IPM for field {0}".format(field.name))
+
+            if field.domain is None:
+                raise Exception(
+                    "Cannot build IPM for field '{0}' since it defines no domain".
+                    format(field.domain))
+
+            if field.name in ipm:
+                raise Exception(f'Duplicate field name {field.name}, can not create IPM')
+
+            fs = FieldSpecializer(field, presets=self.presets)
+            field_ipm = fs.build_field_ipm()
+            if field_ipm is not None:
+                ipm[field.name] = field_ipm
+
+        return ipm
+
     @property
     def memory(self):
         """Memory used while specializing current symbol.

@@ -373,7 +373,7 @@ class IPv4(AbstractType):
             omit.append('VALUE_BROADCAST')
             omit.append('VALUE_NET')
             omit.append('VALUE_ILLEGAL')
-        bounds[IPv4.BoundaryValue.__name__] = [x for x in IPv4.BoundaryValue.__members__ if x not in omit]
+        bounds[IPv4.BoundaryValue.__name__] = [IPv4.BoundaryValue[x].value for x in IPv4.BoundaryValue.__members__ if x not in omit]
         return bounds
 
     class BoundaryValue(Enum):
@@ -457,6 +457,7 @@ class IPv4(AbstractType):
                 dst_sign=self.sign)
 
             self.value = value
+            self.concretized = True
             return self
 
         raise ValueError('Could not construct IPv4, no valid spec in CA')

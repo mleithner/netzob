@@ -112,8 +112,8 @@ class Agg(AbstractVariableNode):
 
     """
 
-    def __init__(self, children=None, svas=None):
-        super(Agg, self).__init__(self.__class__.__name__, children, svas=svas)
+    def __init__(self, children=None, svas=None, name=None):
+        super(Agg, self).__init__(self.__class__.__name__, children, svas=svas, name=name)
 
     @typeCheck(ParsingPath)
     def parse(self, parsingPath, carnivorous=False):
@@ -231,3 +231,13 @@ class Agg(AbstractVariableNode):
 
         # ok we managed to parse all the children, and it produced some valid specializer paths. We return them
         return specializingPaths
+
+    def build_ipm(self):
+        ipm = {'children': {}, 'params': {}}
+        for child in self.children:
+            child_ipm = child.build_ipm()
+            if child_ipm is not None:
+                if child.name in ipm['children']:
+                    raise Exception('Duplicate child name {child.name} for Agg {self.name}')
+                ipm['children'][child.name] = child_ipm
+        return ipm

@@ -139,6 +139,16 @@ class AbstractVariableLeaf(AbstractVariable):
 
         raise Exception("Not yet implemented.")
 
+    def build_ipm(self):
+        if self.svas == SVAS.CONSTANT:
+            return {}
+
+        return self.parameter_values()
+
+    def parameter_values(self):
+        # Mostly for relation variables, Data should override this
+        return None
+
     def _str_debug(self, deepness=0):
         """Returns a string which denotes
         the current field definition using a tree display"""

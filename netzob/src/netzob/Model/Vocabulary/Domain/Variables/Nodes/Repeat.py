@@ -117,8 +117,9 @@ class Repeat(AbstractVariableNode):
 
     """
 
-    def __init__(self, child, nbRepeat, delimitor=None):
-        super(Repeat, self).__init__(self.__class__.__name__, [child])
+    def __init__(self, child, nbRepeat, delimitor=None, name=None):
+        self._logger.debug(f'Repeat.init(): using child named {child.name}')
+        super(Repeat, self).__init__(self.__class__.__name__, [child], name=name)
         self.nbRepeat = nbRepeat
         self.delimitor = delimitor
 
@@ -236,6 +237,20 @@ class Repeat(AbstractVariableNode):
         random.shuffle(specializingPaths)
 
         return specializingPaths
+
+    REPEAT_PARAM_NAME = 'REPEAT_COUNT'
+
+    def build_ipm(self):
+        ipm = {'children': {}, AbstractVariableNode.IPM_PARAMS_PREFIX: {}, '_obj': self}
+        child_ipm = self.children[0].build_ipm()
+        if child_ipm is None:
+            # It makes no sense to repeat "nothing"
+            return None
+
+        self._logger.debug(f'Attaching IPM for child named {self.children[0].name}')
+        ipm[self.children[0].name] = child_ipm
+        ipm[AbstractVariableNode.IPM_PARAMS_PREFIX][Repeat.REPEAT_PARAM_NAME] = list(map(lambda i: (i, True), range(self.nbRepeat[0], self.nbRepeat[1])))
+        return ipm
 
     @property
     def nbRepeat(self):

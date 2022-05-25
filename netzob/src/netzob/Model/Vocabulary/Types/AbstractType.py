@@ -82,6 +82,10 @@ class AbstractType(object, metaclass=abc.ABCMeta):
     UNITSIZE_32 = '32'
     UNITSIZE_64 = '64'
 
+    # Used in IPM generation.
+    # Subclasses should not override this (unless you really know what you're doing)
+    IPM_PARAMS_PREFIX = 'params'
+
     # This value will be used if generate() method is called
     # without any upper size limit
     # 65535*8 is completly arbitrary and equals to 2^16 - 1 octets
@@ -218,6 +222,9 @@ class AbstractType(object, metaclass=abc.ABCMeta):
         if sign is None:
             sign = AbstractType.defaultSign()
         self.sign = sign
+        # Flag that indicates that the value of this
+        # type has been concretized from a CA row
+        self.concretized = False
 
     def __str__(self):
         from netzob.Model.Vocabulary.Types.TypeConverter import TypeConverter
@@ -710,10 +717,11 @@ class AbstractType(object, metaclass=abc.ABCMeta):
         if min_size != max_size:
             assert min_size < max_size
             min_gap = AbstractType.unit_size_to_int(self.unitSize) if align else 1
+            print(list(AbstractType.Size))
             if max_size-min_size > min_gap:
-                bounds[AbstractType.Size.__name__] = [x for x in AbstractType.Size.__members__]
+                bounds[AbstractType.Size.__name__] = [AbstractType.Size[x].value for x in AbstractType.Size.__members__]
             else:
-                bounds[AbstractType.Size.__name__] = [x for x in AbstractType.Size.__members__ if x != 'SIZE_RAND']
+                bounds[AbstractType.Size.__name__] = [AbstractType.Size[x].value for x in AbstractType.Size.__members__ if x != 'SIZE_RAND']
         return bounds
 
     @property

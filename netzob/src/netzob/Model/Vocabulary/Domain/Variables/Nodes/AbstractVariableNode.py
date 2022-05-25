@@ -55,8 +55,8 @@ class AbstractVariableNode(AbstractVariable):
 
     """
 
-    def __init__(self, varType, children=None, svas=None):
-        super(AbstractVariableNode, self).__init__(varType, svas=svas)
+    def __init__(self, varType, children=None, svas=None, name=None):
+        super(AbstractVariableNode, self).__init__(varType, svas=svas, name=name)
         self._children = []
         if children is not None:
             self.children = children
@@ -90,3 +90,6 @@ class AbstractVariableNode(AbstractVariable):
         for f in self.children:
             lines.append(" " + f._str_debug(deepness + 1))
         return '\n'.join(lines)
+
+    def concretize(self, ca_values):
+        raise NotImplementedError("concretize() must be implemented by subclasses")

@@ -118,6 +118,10 @@ class DomainFactory(object):
                 for child in domain:
                     tmpResult.append(DomainFactory.normalizeDomain(child))
             else:
+                # Use existing name, if it exists
+                if hasattr(domain, 'name'):
+                    result.name=domain.name
+
                 for child in domain.children:
                     tmpResult.append(DomainFactory.normalizeDomain(child))
             uniqResult = []

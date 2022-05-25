@@ -463,7 +463,7 @@ class Integer(AbstractType):
             omit.append('VALUE_MAX_MINUS')
         if max_val-min_val < 2:
             omit.append('VALUE_MIN_PLUS')
-        bounds[Integer.BoundaryValue.__name__] = [x for x in Integer.BoundaryValue.__members__ if x not in omit]
+        bounds[Integer.BoundaryValue.__name__] = [Integer.BoundaryValue[x].value for x in Integer.BoundaryValue.__members__ if x not in omit]
         return bounds
 
     def _get_native_interval(self, size=None):
@@ -535,6 +535,7 @@ class Integer(AbstractType):
                 dst_endianness=self.endianness,
                 dst_sign=self.sign)
 
+            self.concretized = True
             return self
 
         raise ValueError('Could not construct Integer, no valid spec in CA')

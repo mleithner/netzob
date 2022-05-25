@@ -209,6 +209,48 @@ class FieldSpecializer(object):
 
         return resultSpecializingPaths
 
+    def build_field_ipm(self):
+        """Collect the children and variables in this field.
+
+        Note that the behavior of this method is a bit more universal than
+        the current implementation of specialize().
+        While specialize() currently can only handle child fields XOR domains,
+        this implementation supports both."""
+
+        self._logger.debug(f'Building IPM for field {self.field.name}')
+
+        # does an arbitrary value is specified ?
+        if self.arbitraryValue is not None:
+            self._logger.debug('A fixed value is set for field {self.field.name}, not constructing IPM')
+            return None
+
+        field_ipm = {'domain': None, 'children': {}}
+
+        # Domain
+        if self.field.domain is not None:
+            vs = VariableSpecializer(self.field.domain)
+            domain_ipm = vs.build_variable_ipm()
+            if domain_ipm is not None:
+                field_ipm['domain'] = domain_ipm
+            else:
+                self._logger.debug(f'The domain for field {self.field.name} does not seem to define parameter values')
+
+        # does current field has children
+        if len(self.field.fields) > 0:
+            for child in self.field.fields:
+                fs = FieldSpecializer(child, presets=self.presets)
+                child_ipm = fs.build_field_ipm()
+                if child_ipm is not None:
+                    if child.name in field_ipm['children']:
+                        raise Exception(f'Duplicate child field {child.name}, can not construct IPM')
+                    field_ipm['children'][child.name] = child_ipm
+
+        # This is actually probably valid for constant fields
+        #if field_ipm['domain'] is None and not field_ipm['children']:
+        #    raise Exception(f'No domain or child IPM for field {self.field.name}')
+
+        return field_ipm
+
     @property
     def arbitraryValue(self):
         """Arbitrary value that must be used when specializing the current field.

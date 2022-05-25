@@ -311,7 +311,7 @@ class Timestamp(AbstractType):
 
     def _construct_boundary_values(self):
         bounds = super(Timestamp, self)._construct_boundary_values(align=False)
-        bounds[Timestamp.BoundaryValue.__name__] = [x for x in Timestamp.BoundaryValue.__members__]
+        bounds[Timestamp.BoundaryValue.__name__] = [Timestamp.BoundaryValue[x].value for x in Timestamp.BoundaryValue.__members__]
         return bounds
 
     class BoundaryValue(Enum):
@@ -353,6 +353,7 @@ class Timestamp(AbstractType):
                 src_sign=AbstractType.SIGN_UNSIGNED,
                 dst_endianness=self.endianness)
             self.value = value
+            self.concretized = True
             return self
 
         raise ValueError('Could not construct Timestamp, no valid spec in CA')

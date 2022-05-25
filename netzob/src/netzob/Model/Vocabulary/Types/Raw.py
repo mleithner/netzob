@@ -275,7 +275,7 @@ class Raw(AbstractType):
             if max_size < 2:
                 omit.append('VALUE_MSB')
                 omit.append('VALUE_LSB')
-        bounds[Raw.BoundaryValue.__name__] = [x for x in Raw.BoundaryValue.__members__ if x not in omit]
+        bounds[Raw.BoundaryValue.__name__] = [Raw.BoundaryValue[x].value for x in Raw.BoundaryValue.__members__ if x not in omit]
         return bounds
 
     class BoundaryValue(Enum):
@@ -371,6 +371,7 @@ class Raw(AbstractType):
                 value = TypeConverter.convert(generated, Raw, BitArray)
 
             self.value = value
+            self.concretized = True
             return self
 
         raise ValueError('Could not construct Raw, no valid spec in CA')

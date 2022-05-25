@@ -212,7 +212,7 @@ class HexaString(AbstractType):
         if max_size < 2:
             omit.append('VALUE_MSB')
             omit.append('VALUE_LSB')
-        bounds[HexaString.BoundaryValue.__name__] = [x for x in HexaString.BoundaryValue.__members__ if x not in omit]
+        bounds[HexaString.BoundaryValue.__name__] = [HexaString.BoundaryValue[x].value for x in HexaString.BoundaryValue.__members__ if x not in omit]
         return bounds
 
     class BoundaryValue(Enum):
@@ -276,6 +276,7 @@ class HexaString(AbstractType):
                     value = bitarray(randomContent, endian=self.endianness)
 
             self.value = value
+            self.concretized = True
             return self
 
         raise ValueError('Could not construct HexaString, no valid spec in CA')

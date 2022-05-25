@@ -54,6 +54,10 @@ class AbstractVariable(object):
     This class is abstract and so should not be instanciated directly.
     """
 
+    # Used in IPM generation.
+    # Subclasses should not override this (unless you really know what you're doing)
+    IPM_PARAMS_PREFIX = '_params'
+
     def __init__(self, varType, varId=None, name=None, svas=None):
         """Constructor
 
@@ -85,6 +89,9 @@ class AbstractVariable(object):
         self.__tokenChoppedIndexes = []
         # The variables just above the current variable in the tree representation.
         self.__fathers = []
+
+    def build_ipm(self):
+        return None
 
     #+---------------------------------------------------------------------------+
     #| Special Functions                                                         |

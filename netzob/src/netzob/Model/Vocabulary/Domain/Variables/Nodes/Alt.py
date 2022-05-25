@@ -101,8 +101,8 @@ class Alt(AbstractVariableNode):
     ---- | ------
     """
 
-    def __init__(self, children=None, svas=None):
-        super(Alt, self).__init__(self.__class__.__name__, children, svas=svas)
+    def __init__(self, children=None, svas=None, name=None):
+        super(Alt, self).__init__(self.__class__.__name__, children, svas=svas, name=name)
 
     @typeCheck(ParsingPath)
     def parse(self, parsingPath, carnivorous=False):
@@ -180,3 +180,18 @@ class Alt(AbstractVariableNode):
         # lets shuffle this ( :) ) >>> by default we only consider the first valid parsing path.
         random.shuffle(specializingPaths)
         return specializingPaths
+
+    ALT_PARAM_NAME = 'ALT_CHOICE'
+
+    def build_ipm(self):
+        ipm = {AbstractVariableNode.IPM_PARAMS_PREFIX: {}, '_obj': self}
+        child_ipm_len = 0
+        for child in self.children:
+            child_ipm = child.build_ipm()
+            if child_ipm is not None:
+                if child.name in ipm:
+                    raise Exception('Duplicate child name {child.name} for Alt {self.name}')
+                ipm[child.name] = child_ipm
+                child_ipm_len += 1
+        ipm[AbstractVariableNode.IPM_PARAMS_PREFIX][Alt.ALT_PARAM_NAME] = list(map(lambda i: (i, True), range(child_ipm_len)))
+        return ipm

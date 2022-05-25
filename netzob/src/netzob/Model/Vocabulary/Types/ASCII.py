@@ -395,8 +395,8 @@ class ASCII(AbstractType):
         omit = [] # Boundary values that shall be omitted
         if max_size < 2:
             omit.append('CASE_RANDOM')
-        bounds[ASCII.Alphabet.__name__] = [x for x in ASCII.Alphabet.__members__ if x not in omit]
-        bounds[ASCII.LetterCase.__name__] = [x for x in ASCII.LetterCase.__members__ if x not in omit]
+        bounds[ASCII.Alphabet.__name__] = [ASCII.Alphabet[x].value for x in ASCII.Alphabet.__members__ if x not in omit]
+        bounds[ASCII.LetterCase.__name__] = [ASCII.LetterCase[x].value for x in ASCII.LetterCase.__members__ if x not in omit]
         return bounds
 
     class Alphabet(Enum):
@@ -422,6 +422,7 @@ class ASCII(AbstractType):
             return self.value[1]
 
     def concretize(self, ca_values):
+        self._logger.debug(f'Concretizing ASCII with CA values {ca_values}')
         size = super(ASCII, self).concretize(ca_values, align=True)
         length = int(size/int(self.unitSize))
 
@@ -451,8 +452,10 @@ class ASCII(AbstractType):
 
                 from netzob.Model.Vocabulary.Types.TypeConverter import TypeConverter
                 from netzob.Model.Vocabulary.Types.BitArray import BitArray
+                str_value = "".join([random.choice(list(alphabet_str)) for _ in range(length)])
+                self._logger.debug(f'Concretized string value: {str_value}')
                 value = TypeConverter.convert(
-                    "".join([random.choice(list(alphabet_str)) for _ in range(length)]),
+                    str_value,
                     ASCII,
                     BitArray,
                     src_unitSize=self.unitSize,
@@ -470,6 +473,7 @@ class ASCII(AbstractType):
                 value = bitarray('00000000') + (bitarray('01000001') * (length-1))
 
             self.value = value
+            self.concretized = True
             return self
 
         raise ValueError('Could not construct ASCII, no valid spec in CA')

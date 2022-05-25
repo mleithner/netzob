@@ -221,7 +221,7 @@ class BitArray(AbstractType):
         if max_size < 2:
             omit.append('VALUE_MSB')
             omit.append('VALUE_LSB')
-        bounds[BitArray.BoundaryValue.__name__] = [x for x in BitArray.BoundaryValue.__members__ if x not in omit]
+        bounds[BitArray.BoundaryValue.__name__] = [BitArray.BoundaryValue[x].value for x in BitArray.BoundaryValue.__members__ if x not in omit]
         return bounds
 
     class BoundaryValue(Enum):
@@ -285,6 +285,7 @@ class BitArray(AbstractType):
                     value = bitarray(randomContent, endian=self.endianness)
 
             self.value = value
+            self.concretized = True
             return self
 
         raise ValueError('Could not construct BitArray, no valid spec in CA')

@@ -71,3 +71,14 @@ class VariableSpecializer():
                 self.variable, len(variableSpecializingPaths)))
 
         return variableSpecializingPaths
+
+    def build_variable_ipm(self):
+        """Collect the parameters and values contained in this variable"""
+
+        if self.variable is None:
+            raise Exception("Variable cannot be None")
+
+        self._logger.debug(f'Building IPM for variable {self.variable.name}')
+        print(self.variable)
+
+        return self.variable.build_ipm()

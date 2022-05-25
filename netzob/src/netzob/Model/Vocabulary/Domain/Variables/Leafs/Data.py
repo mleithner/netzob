@@ -488,6 +488,11 @@ class Data(AbstractVariableLeaf):
 
         result = []
 
+        if self.dataType.concretized:
+            # CA concretization override
+            memory.forget(self)
+            self.currentValue = self.dataType.value
+
         if memory.hasValue(self):
             variableSpecializerPath.addResult(self, memory.getValue(self))
             result.append(variableSpecializerPath)
@@ -508,7 +513,11 @@ class Data(AbstractVariableLeaf):
         if variableSpecializerPath is None:
             raise Exception("VariableSpecializerPath cannot be None")
 
-        newValue = self.dataType.generate()
+        if self.dataType.concretized:
+            # CA concretization override
+            newValue = self.dataType.value
+        else:
+            newValue = self.dataType.generate()
 
         variableSpecializerPath.addResult(self, newValue)
         return [variableSpecializerPath]
@@ -526,7 +535,12 @@ class Data(AbstractVariableLeaf):
         if variableSpecializerPath is None:
             raise Exception("VariableSpecializerPath cannot be None")
 
-        newValue = self.dataType.generate()
+        if self.dataType.concretized:
+            # CA concretization override
+            newValue = self.dataType.value
+        else:
+            newValue = self.dataType.generate()
+
         variableSpecializerPath.memory.memorize(self, newValue)
 
         variableSpecializerPath.addResult(self, newValue)
@@ -551,3 +565,6 @@ class Data(AbstractVariableLeaf):
         else:
             cv = currentValue
         self.__currentValue = cv
+
+    def parameter_values(self):
+        return {'_obj': self.dataType, self.dataType.IPM_PARAMS_PREFIX: self.dataType.boundary_values}
