@@ -103,6 +103,10 @@ class Alt(AbstractVariableNode):
 
     def __init__(self, children=None, svas=None, name=None):
         super(Alt, self).__init__(self.__class__.__name__, children, svas=svas, name=name)
+        # If set, the alternative with this index will always be selected
+        # during specialization.
+        # Otherwise, a random child is selected.
+        self.fixed_choice = None
 
     @typeCheck(ParsingPath)
     def parse(self, parsingPath, carnivorous=False):
@@ -153,8 +157,14 @@ class Alt(AbstractVariableNode):
 
         specializingPaths = []
 
-        # parse each child according to its definition
+        # Specialize each child
         for i_child, child in enumerate(self.children):
+            # If we have a fixed choice for the child, we just skip
+            # all other children
+            if self.fixed_choice is not None and \
+               self.fixed_choice != i_child:
+                continue
+
             newSpecializingPath = specializingPath.duplicate()
             self._logger.debug("ALT Specialize of {0}/{1} with {2}".format(
                 i_child + 1, len(self.children), newSpecializingPath))
@@ -195,3 +205,8 @@ class Alt(AbstractVariableNode):
                 child_ipm_len += 1
         ipm[AbstractVariableNode.IPM_PARAMS_PREFIX][Alt.ALT_PARAM_NAME] = list(map(lambda i: (i, True), range(child_ipm_len)))
         return ipm
+
+    def concretize(self, ca_values):
+        if Alt.ALT_PARAM_NAME in ca_values:
+            self._logger.debug(f'Fixing choice to child {ca_values[Alt.ALT_PARAM_NAME]}')
+            self.fixed_choice = int(ca_values[Alt.ALT_PARAM_NAME])

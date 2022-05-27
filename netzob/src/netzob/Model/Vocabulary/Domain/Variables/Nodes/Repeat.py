@@ -118,9 +118,12 @@ class Repeat(AbstractVariableNode):
     """
 
     def __init__(self, child, nbRepeat, delimitor=None, name=None):
-        self._logger.debug(f'Repeat.init(): using child named {child.name}')
         super(Repeat, self).__init__(self.__class__.__name__, [child], name=name)
         self.nbRepeat = nbRepeat
+        # If not None, this will be used as the number of repetitions
+        # during specialization.
+        # Otherwise, a number between nbRepeat[0] and nbRepeat[1]-1 is used
+        self.fixed_repetitions = None
         self.delimitor = delimitor
 
     @typeCheck(ParsingPath)
@@ -209,7 +212,15 @@ class Repeat(AbstractVariableNode):
         # initialy, there is a unique path to specialize (the provided one)
         specializingPaths = []
 
-        for i_repeat in range(self.nbRepeat[0], self.nbRepeat[1]):
+        # Number of repetitions
+        # Note that the maximum repetitions are actually
+        # rep_max-1 (due to the way range() works)
+        (rep_min, rep_max) = self.nbRepeat
+        if self.fixed_repetitions is not None:
+            rep_min = self.fixed_repetitions
+            rep_max = rep_min+1
+
+        for i_repeat in range(rep_min, rep_max):
             newSpecializingPaths = [originalSpecializingPath.duplicate()]
 
             for i in range(i_repeat):
@@ -251,6 +262,11 @@ class Repeat(AbstractVariableNode):
         ipm[self.children[0].name] = child_ipm
         ipm[AbstractVariableNode.IPM_PARAMS_PREFIX][Repeat.REPEAT_PARAM_NAME] = list(map(lambda i: (i, True), range(self.nbRepeat[0], self.nbRepeat[1])))
         return ipm
+
+    def concretize(self, ca_values):
+        if Repeat.REPEAT_PARAM_NAME in ca_values:
+            self._logger.debug(f'Fixing repetitions to {ca_values[Repeat.REPEAT_PARAM_NAME]}')
+            self.fixed_repetitions = int(ca_values[Repeat.REPEAT_PARAM_NAME])
 
     @property
     def nbRepeat(self):

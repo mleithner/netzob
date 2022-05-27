@@ -241,3 +241,7 @@ class Agg(AbstractVariableNode):
                     raise Exception('Duplicate child name {child.name} for Agg {self.name}')
                 ipm['children'][child.name] = child_ipm
         return ipm
+
+    def concretize(self, ca_values):
+        # Agg has no parameters
+        pass
