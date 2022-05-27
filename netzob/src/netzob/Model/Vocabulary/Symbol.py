@@ -181,7 +181,9 @@ class Symbol(AbstractField):
             return TypeConverter.convert(spePath.generatedContent, BitArray,
                                          Raw)
 
-    def specialize_from_ca(self, path, ca_format='pict', ipm=None, memory=None, presets=None):
+
+
+    def specialize_from_ca(self, path, var_path=None, ca_format='pict', ipm=None, memory=None, presets=None):
         """Returns a list of specialized messages as raw data, based on the contents
         of a CA given as `path`.
 
@@ -192,6 +194,10 @@ class Symbol(AbstractField):
 
         The IPM must have been created using Symbel.build_ipm(); if it is
         not specified, it will be recreated.
+
+        If var_path is not None, it should specify the path to a CA
+        that contains the values only for node variables, while the CA
+        under `path` should contain the values for primitive types.
         """
 
         if ipm is None:
@@ -202,7 +208,13 @@ class Symbol(AbstractField):
         (ca_parameters, ca_rows) = Symbol.read_ca(path, ca_format)
         print(ca_parameters)
         print(f'Have {len(ca_rows)} rows in CA')
-        #print(ca_rows)
+
+        if var_path is not None:
+            (var_parameters, var_rows) = Symbol.read_ca(var_path, ca_format)
+            print(f'Have {len(var_rows)} rows in variable CA, will construct {len(var_rows)*len(ca_rows)} total messages')
+        else:
+            var_parameters = ca_parameters
+            var_rows = [None] # A single empty line
 
         # Let's set up a mapping to quickly retrieve the right columns
         type_columns = []
@@ -212,14 +224,16 @@ class Symbol(AbstractField):
                 if isinstance(ipm[ipm_key], AbstractVariable):
                     print(f'Parameter {ipm_key} is a variable')
                     param_prefix = f'{ipm_key}_{AbstractVariable.IPM_PARAMS_PREFIX}_'
+                    # Only those CA columns that pertain to this type
+                    applicable_params = filter(lambda e: e[1].startswith(param_prefix), enumerate(var_parameters))
                 elif isinstance(ipm[ipm_key], AbstractType):
                     print(f'Parameter {ipm_key} is a primitive type')
                     param_prefix = f'{ipm_key}_{AbstractType.IPM_PARAMS_PREFIX}_'
-                # Only those CA columns that pertain to this type
-                type_params = filter(lambda e: e[1].startswith(param_prefix), enumerate(ca_parameters))
+                    # Only those CA columns that pertain to this type
+                    applicable_params = filter(lambda e: e[1].startswith(param_prefix), enumerate(ca_parameters))
                 # Strip the prefix and assign the (column, name) tuple
                 params = []
-                for (column_idx, param_name) in map(lambda s: (s[0], s[1].removeprefix(param_prefix)), type_params):
+                for (column_idx, param_name) in map(lambda s: (s[0], s[1].removeprefix(param_prefix)), applicable_params):
                     print(f'Assigning column {column_idx} to parameter {param_name} for {ipm_key}')
                     params.append((column_idx, param_name))
 
@@ -232,19 +246,32 @@ class Symbol(AbstractField):
         print(variable_columns)
 
         for row in ca_rows:
-            print(f'Concretizing row {row}')
+            print(f'Concretizing types using row {row}')
 
-            for t_col in type_columns:
-                type_values = {}
-                for (column_idx, param_name) in t_col['params']:
-                    type_values[param_name] = row[column_idx]
-                t_col['object'].concretize(type_values)
-                print(t_col['object'].value)
+            for col in type_columns:
+                col['object'].concretize({name:row[idx] for(idx, name) in col['params']})
 
-            print('BREAK')
-            break
+#            for columns in [type_columns, variable_columns]:
+#                for col in columns:
+#                    values = {}
+#                    for (column_idx, param_name) in col['params']:
+#                        values[param_name] = row[column_idx]
+#                    col['object'].concretize(values)
+
+            for var_row in var_rows:
+                # If the row is None, we only have one CA and always use
+                # the row from that one.
+                if var_row is None:
+                    var_row = row
+                print(f'Concretizing variables using row {var_row}')
+                for col in variable_columns:
+                    col['object'].concretize({name:var_row[idx] for(idx, name) in col['params']})
+
+                yield self.specialize(memory=memory, presets=presets)
 
 
+    # This prefix is used to signal that a specific IPM/CA value is negative, i.e. "invalid"
+    NEGATIVE_VALUE_PREFIX = '~'
 
     @staticmethod
     def read_ca(path, ca_format):
@@ -258,20 +285,30 @@ class Symbol(AbstractField):
                     if not parameters:
                         parameters = row
                     else:
-                        rows.append(row)
+                        # Append the row, but remove the prefix from negative values
+                        rows.append(list(map(
+                            lambda v: v.removeprefix(Symbol.NEGATIVE_VALUE_PREFIX),
+                            row)))
             return (parameters, rows)
 
         # Not a valid format
         raise ValueError('CA format unsupported.')
 
 
-    def build_ipm(self, path, memory=None, presets=None, ipm_format='pict'):
+    def build_ipm(self, path, var_path=None, memory=None, presets=None, ipm_format='pict'):
         """Constructs an IPM for this symbol.
         An input parameter model defines the parameters and their respective
         values to be used in combinatorial testing.
         This method first gathers all the parameters required to represent
         the fields of this message in a tree-like structure and then outputs
-        an IPM to the `path`, which should be a path to a non-existent file."""
+        an IPM to the `path`, which should be a path to a non-existent file.
+
+        If `var_path` is set, the IPM in `path` will only contain parameters
+        for primitive types, while the IPM in `var_path` will contain
+        the parameters of node variables.
+        In this case, you must also use both paths in `specialize_from_ca()`
+        to obtain correct results.
+        """
 
         from netzob.Model.Vocabulary.Domain.Specializer.MessageSpecializer import MessageSpecializer
         msg = MessageSpecializer(memory=memory, presets=presets)
@@ -285,14 +322,41 @@ class Symbol(AbstractField):
         self._logger.debug('Dumping intermediate IPM columns:')
         self._logger.debug(ipm_columns)
 
-        if ipm_format is None:
-            return ipm_columns
-        if ipm_format == 'pict':
-            self._logger.debug(f'Writing IPM as PICT input file to {path}')
-            return Symbol.output_ipm_pict(ipm_columns, path)
+        # Combined output as one IPM
+        if var_path is None:
+            if ipm_format is None:
+                return ipm_columns
+            if ipm_format == 'pict':
+                self._logger.debug(f'Writing IPM as PICT input file to {path}')
+                return Symbol.output_ipm_pict(ipm_columns, path)
+            # No valid output format
+            raise ValueError(f'Output ipm_format "{ipm_format}" is unsupported.')
 
+        # We generate separate IPMs
+        type_keys = [] # Keys that refer to types & their params
+        # We could `map()` this, but it'd be harder to read, so..`
+        for ipm_key in ipm_columns:
+            if isinstance(ipm_columns[ipm_key], AbstractType):
+                type_keys.extend(list(filter(lambda k: k.startswith(ipm_key), ipm_columns)))
+
+        var_ipm = {}
+        type_ipm = {}
+        for ipm_key in ipm_columns:
+            if ipm_key in type_keys:
+                type_ipm[ipm_key] = ipm_columns[ipm_key]
+            else:
+                var_ipm[ipm_key] = ipm_columns[ipm_key]
+
+        if ipm_format is None:
+            return (var_ipm, type_ipm)
+        if ipm_format == 'pict':
+            self._logger.debug(f'Writing variable IPM as PICT input file to {var_path}')
+            Symbol.output_ipm_pict(var_ipm, var_path)
+            self._logger.debug(f'Writing type IPM as PICT input file to {path}')
+            return Symbol.output_ipm_pict(type_ipm, path)
         # No valid output format
         raise ValueError(f'Output ipm_format "{ipm_format}" is unsupported.')
+
 
     # XXX Do we even want this?
     @typeCheck(Memory, object)
@@ -326,10 +390,13 @@ class Symbol(AbstractField):
         field_columns = {}
         for param in domain:
             if isinstance(domain[param], dict):
+                print(f'Recursing into {prefix}_{param}')
                 field_columns.update(Symbol._ipm_domain_rec(domain[param], f'{prefix}_{param}'))
             elif isinstance(domain[param], list):
+                print(f'Have parameter list at {prefix}_{param}');
                 field_columns[f'{prefix}_{param}'] = domain[param]
             elif isinstance(domain[param], (AbstractType, AbstractVariable)):
+                print(f'Have type/variable object at {prefix}_{param}')
                 field_columns[prefix] = domain[param]
         return field_columns
 
@@ -344,7 +411,7 @@ class Symbol(AbstractField):
 
     @staticmethod
     def format_ipm_values(ipm_column):
-        return ','.join(map(lambda c: f'{"" if c[1] else "~"}{c[0]}', ipm_column))
+        return ','.join(map(lambda c: f'{"" if c[1] else Symbol.NEGATIVE_VALUE_PREFIX}{c[0]}', ipm_column))
 
 
     def clearMessages(self):
