@@ -93,7 +93,13 @@ class Raw(AbstractType):
             elif isinstance(value, bytes):
                 value = TypeConverter.convert(value, Raw, BitArray)
 
-        nbBits = self._convertNbBytesinNbBits(nbBytes)
+        if nbBytes is not None:
+            nbBits = self._convertNbBytesinNbBits(nbBytes)
+        elif value is not None:
+            # Use bit size of `value` as min/max
+            nbBits = (len(value), len(value))
+        else:
+            nbBits = (None, None)
 
         self.alphabet = alphabet
         
@@ -247,8 +253,12 @@ class Raw(AbstractType):
         return True
 
     def _construct_boundary_values(self):
+        self._logger.debug(f'Building IPM for Raw with value {self.value} and size {self.size}')
         bounds = super(Raw, self)._construct_boundary_values(align=(self.alphabet is not None))
         min_size, max_size = self.size
+        if max_size is None:
+            self._logger.debug('max_size is empty, probably a synthetic domain, not adding bounds')
+            return bounds
         omit = [] # Boundary values that shall be omitted
         if self.alphabet is not None:
             omit.append('VALUE_NONE')

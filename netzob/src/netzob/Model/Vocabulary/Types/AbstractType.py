@@ -213,6 +213,10 @@ class AbstractType(object, metaclass=abc.ABCMeta):
         self.typeName = typeName
         self.value = value
         self.size = size
+        if isinstance(self.size, int):
+            # Fix cases where `size` is not a tuple
+            #print('Fixing size to tuple')
+            self.size = (self.size, self.size)
         if unitSize is None:
             unitSize = AbstractType.defaultUnitSize()
         self.unitSize = unitSize
@@ -713,11 +717,14 @@ class AbstractType(object, metaclass=abc.ABCMeta):
     def _construct_boundary_values(self, align=True):
         bounds = {} # boundary name -> [boundary values]
         min_size, max_size = self.size
-        print(f'AbstractType: Constructing boundary values for sizes {min_size}, {max_size}')
+        #print(f'AbstractType: Constructing boundary values for sizes {min_size}, {max_size}')
+        if max_size is None:
+            # No size bounds
+            return bounds
         if min_size != max_size:
             assert min_size < max_size
             min_gap = AbstractType.unit_size_to_int(self.unitSize) if align else 1
-            print(list(AbstractType.Size))
+            #print(list(AbstractType.Size))
             if max_size-min_size > min_gap:
                 bounds[AbstractType.Size.__name__] = [AbstractType.Size[x].value for x in AbstractType.Size.__members__]
             else:
@@ -736,7 +743,7 @@ class AbstractType(object, metaclass=abc.ABCMeta):
 
         # Types with static size always use that size
         min_size, max_size = self.size
-        if min_size == max_size:
+        if min_size == max_size or max_size is None:
             return min_size
 
         # Otherwise, we should have a size specification in the CA row

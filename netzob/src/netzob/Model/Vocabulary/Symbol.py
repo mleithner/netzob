@@ -203,15 +203,15 @@ class Symbol(AbstractField):
         if ipm is None:
             ipm = self.build_ipm(None, memory=memory, presets=presets, ipm_format=None)
 
-        print('Specializing CA using IPM:')
-        print(ipm)
+        #print('Specializing CA using IPM:')
+        #print(ipm)
         (ca_parameters, ca_rows) = Symbol.read_ca(path, ca_format)
-        print(ca_parameters)
-        print(f'Have {len(ca_rows)} rows in CA')
+        #print(ca_parameters)
+        #print(f'Have {len(ca_rows)} rows in CA')
 
         if var_path is not None:
             (var_parameters, var_rows) = Symbol.read_ca(var_path, ca_format)
-            print(f'Have {len(var_rows)} rows in variable CA, will construct {len(var_rows)*len(ca_rows)} total messages')
+            #print(f'Have {len(var_rows)} rows in variable CA, will construct {len(var_rows)*len(ca_rows)} total messages')
         else:
             var_parameters = ca_parameters
             var_rows = [None] # A single empty line
@@ -222,33 +222,35 @@ class Symbol(AbstractField):
         for ipm_key in ipm:
             if isinstance(ipm[ipm_key], (AbstractVariable, AbstractType)):
                 if isinstance(ipm[ipm_key], AbstractVariable):
-                    print(f'Parameter {ipm_key} is a variable')
+                    #print(f'Parameter {ipm_key} is a variable')
                     param_prefix = f'{ipm_key}_{AbstractVariable.IPM_PARAMS_PREFIX}_'
                     # Only those CA columns that pertain to this type
                     applicable_params = filter(lambda e: e[1].startswith(param_prefix), enumerate(var_parameters))
                 elif isinstance(ipm[ipm_key], AbstractType):
-                    print(f'Parameter {ipm_key} is a primitive type')
+                    #print(f'Parameter {ipm_key} is a primitive type')
                     param_prefix = f'{ipm_key}_{AbstractType.IPM_PARAMS_PREFIX}_'
                     # Only those CA columns that pertain to this type
                     applicable_params = filter(lambda e: e[1].startswith(param_prefix), enumerate(ca_parameters))
                 # Strip the prefix and assign the (column, name) tuple
                 params = []
                 for (column_idx, param_name) in map(lambda s: (s[0], s[1].removeprefix(param_prefix)), applicable_params):
-                    print(f'Assigning column {column_idx} to parameter {param_name} for {ipm_key}')
+                    #print(f'Assigning column {column_idx} to parameter {param_name} for {ipm_key}')
                     params.append((column_idx, param_name))
 
-                if isinstance(ipm[ipm_key], AbstractVariable):
-                    variable_columns.append({'object': ipm[ipm_key], 'params': params})
-                elif isinstance(ipm[ipm_key], AbstractType):
-                    type_columns.append({'object': ipm[ipm_key], 'params': params})
+                if params:
+                    if isinstance(ipm[ipm_key], AbstractVariable):
+                        variable_columns.append({'object': ipm[ipm_key], 'params': params})
+                    elif isinstance(ipm[ipm_key], AbstractType):
+                        type_columns.append({'object': ipm[ipm_key], 'params': params})
 
-        print(type_columns)
-        print(variable_columns)
+        #print(type_columns)
+        #print(variable_columns)
 
         for row in ca_rows:
-            print(f'Concretizing types using row {row}')
+            #print(f'Concretizing types using row {row}')
 
             for col in type_columns:
+                #print(f'Concretizing type column {col["params"]} for object {col["object"]}')
                 col['object'].concretize({name:row[idx] for(idx, name) in col['params']})
 
 #            for columns in [type_columns, variable_columns]:
@@ -263,7 +265,7 @@ class Symbol(AbstractField):
                 # the row from that one.
                 if var_row is None:
                     var_row = row
-                print(f'Concretizing variables using row {var_row}')
+                #print(f'Concretizing variables using row {var_row}')
                 for col in variable_columns:
                     col['object'].concretize({name:var_row[idx] for(idx, name) in col['params']})
 
@@ -358,22 +360,6 @@ class Symbol(AbstractField):
         raise ValueError(f'Output ipm_format "{ipm_format}" is unsupported.')
 
 
-    # XXX Do we even want this?
-    @typeCheck(Memory, object)
-    def generate_ca_pict(self, pict_path, path, strength=2, memory=None, presets=None):
-        self.build_ipm(path, memory, presets, format='pict')
-        from subprocess import Popen, PIPE, TimeoutExpired
-        print(f'Will try to generate CA using PICT at {pict_path} with generated input file {path} and t={strength}')
-        proc = Popen([pict_path, path, f'/o:{strength}'], stdout=PIPE, stderr=PIPE, text=True, encoding='utf-8')
-        print('Process created, waiting for output...')
-        try:
-            outs, errs = proc.communicate()
-            # XXX TODO
-        except TimeoutExpired:
-            proc.kill()
-            outs, errs = proc.communicate()
-            # XXX TODO
-
     @staticmethod
     def flatten_ipm_params(field_ipm, prefix):
         field_columns = {}
@@ -390,13 +376,13 @@ class Symbol(AbstractField):
         field_columns = {}
         for param in domain:
             if isinstance(domain[param], dict):
-                print(f'Recursing into {prefix}_{param}')
+                #print(f'Recursing into {prefix}_{param}')
                 field_columns.update(Symbol._ipm_domain_rec(domain[param], f'{prefix}_{param}'))
             elif isinstance(domain[param], list):
-                print(f'Have parameter list at {prefix}_{param}');
+                #print(f'Have parameter list at {prefix}_{param}');
                 field_columns[f'{prefix}_{param}'] = domain[param]
             elif isinstance(domain[param], (AbstractType, AbstractVariable)):
-                print(f'Have type/variable object at {prefix}_{param}')
+                #print(f'Have type/variable object at {prefix}_{param}')
                 field_columns[prefix] = domain[param]
         return field_columns
 
